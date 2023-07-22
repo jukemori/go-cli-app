@@ -19,9 +19,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
+
+// main.go
+
 package main
 
-import "github.com/jukemori/go-cli-app/cmd"
+import (
+
+
+	"github.com/jukemori/go-cli-app/cmd"
+)
 
 func main() {
 	cmd.Execute()
