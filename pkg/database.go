@@ -56,7 +56,13 @@ func SaveData(db *sql.DB, id, name, createdAt string) error {
 		return fmt.Errorf("failed to parse createdAt: %v", err)
 	}
 
-	insertQuery := "INSERT INTO contentful_entries (id, name, created_at) VALUES ($1, $2, $3)"
+	insertQuery := `
+		INSERT INTO contentful_entries (id, name, created_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (id) DO UPDATE
+		SET name = excluded.name, created_at = excluded.created_at
+	`
+
 	_, err = db.Exec(insertQuery, id, name, createdAtTime)
 	return err
 }
