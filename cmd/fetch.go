@@ -1,13 +1,22 @@
+// cmd/fetch.go
 package cmd
 
 import (
+	// other imports...
 	"fmt"
+	"os"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"github.com/jukemori/go-cli-app/pkg"
 )
 
 var (
-	entryID     string
+	entryIDs = []string{
+			"6QRk7gQYmOyJ1eMG9H4jbB", // 蜂蜜豆乳クランベリー
+			"41RUO5w4oIpNuwaqHuSwEc", // 黒ゴマポテロール
+			"4Li6w5uVbJNVXYVxWjWVoZ", // 黒七味と岩塩のフォカッチャ
+	}
+
 	accessToken string
 )
 
@@ -18,51 +27,58 @@ var fetchCmd = &cobra.Command{
 }
 
 func init() {
-	fetchCmd.Flags().StringVar(&entryID, "entry_id", "", "Contentful entry ID")
-	fetchCmd.Flags().StringVar(&accessToken, "access_token", "", "Contentful access token")
-	fetchCmd.MarkFlagRequired("entry_id")
-	fetchCmd.MarkFlagRequired("access_token")
+	cobra.OnInitialize(initConfig)
 
 	rootCmd.AddCommand(fetchCmd)
 }
 
-// fetchContentfulData is the function to fetch data from Contentful and save it to the PostgreSQL database.
-// cmd/fetch.go
+func initConfig() {
+	err := godotenv.Load()
+	if err != nil {
+			fmt.Println("Error loading .env file:", err)
+			os.Exit(1)
+	}
 
-// fetchContentfulData is the function to fetch data from Contentful and save it to the PostgreSQL database.
+	accessToken = os.Getenv("CONTENTFUL_ACCESS_TOKEN")
+	if accessToken == "" {
+			fmt.Println("Error: CONTENTFUL_ACCESS_TOKEN environment variable is not set.")
+			os.Exit(1)
+	}
+}
+
 func fetchContentfulData(cmd *cobra.Command, args []string) {
-	// Fetch data from Contentful API
-	url := fmt.Sprintf("https://cdn.contentful.com/spaces/2vskphwbz4oc/entries/%s?access_token=%s", entryID, accessToken)
-	response, err := pkg.FetchContentfulData(url)
-	if err != nil {
-		fmt.Println("Error fetching data from Contentful:", err)
-		return
+	for _, entryID := range entryIDs {
+			url := fmt.Sprintf("https://cdn.contentful.com/spaces/2vskphwbz4oc/entries/%s?access_token=%s", entryID, accessToken)
+			response, err := pkg.FetchContentfulData(url)
+			if err != nil {
+					fmt.Printf("Error fetching data for entry ID %s: %v\n", entryID, err)
+					continue
+			}
+
+			// Display the fetched data
+			fmt.Println("ID:", response.Sys.ID)
+			fmt.Println("Name:", response.Fields.Name)
+			fmt.Println("CreatedAt:", response.Sys.CreatedAt)
+
+			db, err := pkg.OpenDatabase()
+			if err != nil {
+					fmt.Println("Error opening database:", err)
+					return
+			}
+			defer db.Close()
+
+			err = pkg.CreateTable(db)
+			if err != nil {
+					fmt.Println("Error creating table:", err)
+					return
+			}
+
+			err = pkg.SaveData(db, response.Sys.ID, response.Fields.Name, response.Sys.CreatedAt)
+			if err != nil {
+					fmt.Println("Error saving data to database:", err)
+					return
+			}
+
+			fmt.Println("Data fetched from Contentful and saved to the PostgreSQL database.")
 	}
-
-	// Display the fetched data
-	fmt.Println("ID:", response.Sys.ID)
-	fmt.Println("Name:", response.Fields.Name)
-	fmt.Println("CreatedAt:", response.Sys.CreatedAt)
-
-	// Save the fetched data to the PostgreSQL database.
-	db, err := pkg.OpenDatabase()
-	if err != nil {
-		fmt.Println("Error opening database:", err)
-		return
-	}
-	defer db.Close()
-
-	err = pkg.CreateTable(db)
-	if err != nil {
-		fmt.Println("Error creating table:", err)
-		return
-	}
-
-	err = pkg.SaveData(db, response.Sys.ID, response.Fields.Name, response.Sys.CreatedAt)
-	if err != nil {
-		fmt.Println("Error saving data to database:", err)
-		return
-	}
-
-	fmt.Println("Data fetched from Contentful and saved to the PostgreSQL database.")
 }
